@@ -5,7 +5,8 @@ import * as THREE from 'three';
  */
 export function makeBunnyGeometry(resolution = 54): THREE.BufferGeometry {
   const nx=resolution, ny=Math.round(resolution*.83), nz=Math.round(resolution*1.22);
-  const lo=[-38,-29,-7], hi=[38,34,100];
+  if(!Number.isInteger(resolution)||resolution<12||resolution>100)throw Error('Auflösung muss zwischen 12 und 100 liegen.');
+  const lo=[-45,-38,-15], hi=[50,40,112];
   const dx=(hi[0]-lo[0])/nx,dy=(hi[1]-lo[1])/ny,dz=(hi[2]-lo[2])/nz;
   type V=[number,number,number];
   const ell=(p:V,c:V,r:V)=>Math.hypot((p[0]-c[0])/r[0],(p[1]-c[1])/r[1],(p[2]-c[2])/r[2])-1;
@@ -29,7 +30,9 @@ export function makeBunnyGeometry(resolution = 54): THREE.BufferGeometry {
   const corners:V[]=[[0,0,0],[1,0,0],[1,1,0],[0,1,0],[0,0,1],[1,0,1],[1,1,1],[0,1,1]];
   const tets=[[0,5,1,6],[0,1,2,6],[0,2,3,6],[0,3,7,6],[0,7,4,6],[0,4,5,6]];
   const pos:number[]=[];
-  const interpolate=(a:V,b:V,fa:number,fb:number):V=>{const t=fa/(fa-fb);return [a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t]};
+  const interpolate=(a:V,b:V,fa:number,fb:number):V=>{// Canonical edge order gives identical float32 vertices across tetrahedra.
+    if(a[0]>b[0]||(a[0]===b[0]&&(a[1]>b[1]||(a[1]===b[1]&&a[2]>b[2])))){[a,b]=[b,a];[fa,fb]=[fb,fa]}
+    const t=fa/(fa-fb);return [a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t]};
   const triangle=(a:V,b:V,c:V)=>{
     const ab=new THREE.Vector3(b[0]-a[0],b[1]-a[1],b[2]-a[2]);
     const ac=new THREE.Vector3(c[0]-a[0],c[1]-a[1],c[2]-a[2]);
@@ -50,3 +53,4 @@ export function makeBunnyGeometry(resolution = 54): THREE.BufferGeometry {
   }
   const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));geometry.computeVertexNormals();return geometry;
 }
+
