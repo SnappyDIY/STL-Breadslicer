@@ -1,18 +1,36 @@
 name: Build and Test
 on:
   push:
+    branches: [main]
   pull_request:
+permissions:
+  contents: read
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
       - name: Install dependencies
+        id: install
         run: npm install
+      - name: Report dependency audit
+        run: npm audit || true
       - name: Run tests
         run: npm test
       - name: Build application
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: npm run build
+      - name: Install browser
+        run: npx playwright install --with-deps chromium
+      - name: Browser smoke test
+        run: npm run test:browser
+      - name: Upload dependency lockfile
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-lockfile
+          path: package-lock.json
