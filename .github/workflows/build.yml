@@ -11,8 +11,11 @@ jobs:
         with:
           node-version: '22'
       - name: Install dependencies
+        id: install
         run: npm install
       - name: Run tests
         run: npm test
       - name: Build application
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: npm run build
+
