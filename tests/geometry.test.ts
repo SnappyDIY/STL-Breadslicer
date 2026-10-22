@@ -30,7 +30,7 @@ async function stlRoundTrip(s:Solid){
  }finally{g.dispose()}
 }
 describe('Exact solid slicing',()=>{
- it.each<Vec3>([[0,0,1],[0,0,9],[1,0,0],[0,1,0],[1,2,3]])('conserves volume along normal %j',async(...args)=>{
+ it.each<Vec3>([[0,0,1],[0,0,9],[1,0,0],[0,1,0],[1,2,3]])('conserves volume along normal (%s, %s, %s)',async(...args)=>{
   const n=args as Vec3,source=lib.Manifold.cube([60,60,60],true),[min,max]=extentAlong(source,n),cuts=boundaries(min,max,5);let volume=0;
   try{if(n.filter(x=>x!==0).length===1)expect(cuts).toHaveLength(13);
    for(let i=0;i<cuts.length-1;i++){const part=makeSlice(lib,source,cuts[i],cuts[i+1],config,n);
@@ -41,6 +41,9 @@ describe('Exact solid slicing',()=>{
  it('rejects invalid normals and non-finite boundaries',()=>{
   expect(()=>normalizeNormal([0,0,0])).toThrow();expect(()=>normalizeNormal([NaN,1,0])).toThrow();
   expect(()=>boundaries(NaN,60,5)).toThrow();expect(()=>validateBoundaries([0,NaN,60],0,60)).toThrow();
+ });
+ it('rejects non-finite pattern input before constructing cutters',()=>{
+  const source=lib.Manifold.cube([60,60,60]);try{expect(()=>makeSlice(lib,source,0,5,{...defaults,wall:Infinity})).toThrow()}finally{source.delete()}
  });
  it('rejects an open mesh',()=>{const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute([0,0,0,1,0,0,0,1,0],3));try{expect(()=>toSolid(g,lib)).toThrow()}finally{g.dispose()}});
  it.each(['honeycomb','grid','voronoi','gyroid'] as const)('creates valid %s cutouts',pattern=>{
