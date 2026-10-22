@@ -1,21 +1,39 @@
-# STL BreadSlicer
+# STL BreadSlicer v0.3
 
-Local-first browser application for slicing STL meshes for 3D printing and laser cutting.
-
-## Codex handoff
-The project instructions are in [AGENTS.md](AGENTS.md).
-
-**Source transfer status:** The existing v0.3 Bunny application is available in the originating ChatGPT conversation as `stl-breadslicer-v0.3-bunny-source.zip` and has not yet been imported into this repository. Upload the contents of that archive (not its parent folder) before running build commands.
+Local-first browser application for STL slicing for 3D printing and laser cutting.
 
 ## Stack
-React, TypeScript, Vite, Three.js, Manifold WASM, Vitest.
+React 19, TypeScript, Vite, Three.js, Manifold WASM, JSZip, Vitest.
 
-## After source import
+## Start
 ```bash
 npm install
-npm run build
-npm test
 npm run dev
 ```
 
-Prioritize successful build and real geometry validation. See AGENTS.md for acceptance criteria.
+## Quality checks
+```bash
+npm test
+npm run build
+```
+
+GitHub Actions runs both checks on every push and pull request. **The v0.3 source has been imported, but successful compilation, browser runtime, and manufacturing accuracy have not yet been confirmed.**
+
+## Features in current source
+- STL import, manifold conversion, interactive slice boundaries
+- Rotations about X/Y/Z for arbitrary slicing orientation
+- Locally generated procedural bunny
+- Slab Boolean operations, honeycomb and grid-like cutouts
+- Experimental simplified Voronoi/gyroid patterns (not true gyroid geometry)
+- STL, ZIP, SVG, DXF, 3MF and JSON project import/export
+- Basic shelf-based sheet layout and approximate kerf offset
+
+## Known gaps
+- True gyroid and robust Voronoi structures
+- Connector pegs, joint features, surface relief
+- Robust offsetting for holes/concave laser paths, exact nesting
+- Mesh validation and end-to-end geometric regression testing
+- Confirmed build/runtime
+
+## Codex instructions
+Read [AGENTS.md](AGENTS.md). Start by fixing all CI failures and adding validation tests before feature work.
