@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import Module from '@manifold-3d/manifold';
+import Module from 'manifold-3d';
 import type {Config} from './model';
 const modulePromise=Module().then(m=>{m.Manifold.setup();return m});
 type Lib=Awaited<typeof modulePromise>;export type Solid=InstanceType<Lib['Manifold']>;

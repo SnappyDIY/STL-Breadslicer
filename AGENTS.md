@@ -3,7 +3,7 @@
 This repository is the development home for STL BreadSlicer, a local-first browser CAD tool for 3D printing and laser cutting.
 
 ## Stack
-React, TypeScript, Vite, Three.js, @manifold-3d/manifold (WASM), JSZip, Vitest.
+React, TypeScript, Vite, Three.js, manifold-3d (WASM), JSZip, Vitest.
 
 ## Priorities
 1. Import the complete v0.3 Bunny source archive supplied in the ChatGPT conversation. Preserve all existing source files.
