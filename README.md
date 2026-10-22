@@ -2,38 +2,43 @@
 
 Local-first browser application for STL slicing for 3D printing and laser cutting.
 
-## Stack
-React 19, TypeScript, Vite, Three.js, Manifold WASM, JSZip, Vitest.
-
 ## Start
-```bash
+
+Node.js 22 or later is recommended.
+
+```sh
 npm install
 npm run dev
 ```
 
 ## Quality checks
-```bash
+
+```sh
 npm test
 npm run build
+# Optional browser check of the built application:
+npx playwright install --with-deps chromium
+npm run test:browser
 ```
 
-GitHub Actions runs both checks on every push and pull request. **The v0.3 source has been imported, but successful compilation, browser runtime, and manufacturing accuracy have not yet been confirmed.**
+GitHub Actions installs dependencies, runs geometric regression tests, builds the app and checks local WASM/model processing and manufacturing downloads in Chromium. See [validation results and remaining issues](docs/VALIDATION.md).
 
-## Features in current source
-- STL import, manifold conversion, interactive slice boundaries
-- Rotations about X/Y/Z for arbitrary slicing orientation
-- Locally generated procedural bunny
-- Slab Boolean operations, honeycomb and grid-like cutouts
-- Experimental simplified Voronoi/gyroid patterns (not true gyroid geometry)
-- STL, ZIP, SVG, DXF, 3MF and JSON project import/export
-- Basic shelf-based sheet layout and approximate kerf offset
+## Implemented
 
-## Known gaps
-- True gyroid and robust Voronoi structures
-- Connector pegs, joint features, surface relief
-- Robust offsetting for holes/concave laser paths, exact nesting
-- Mesh validation and end-to-end geometric regression testing
-- Confirmed build/runtime
+- Local STL import with solid validation, locally generated watertight rabbit
+- X/Y/Z model rotations, automatic extents, interactive slice boundaries
+- Exact slab intersections; normalized arbitrary normals in the geometry API
+- Solid, honeycomb and grid cutouts
+- Separate print (STL, ZIP, 3MF) and laser (SVG, DXF, sheet SVG) exports
+- Closed concave laser cross-sections with holes
+- Basic JSON project save/load and shelf placement
 
-## Codex instructions
-Read [AGENTS.md](AGENTS.md). Start by fixing all CI failures and adding validation tests before feature work.
+Gyroid and Voronoi are simplified prototypes. Connectors and relief are reserved features. Kerf offsets, uniform shell thickness, nesting, orientation persistence and physical manufacturing accuracy have limitations documented in the validation report. Passing automated checks does not establish production readiness.
+
+## Stack
+
+React 19, TypeScript, Vite, Three.js, `manifold-3d` WASM, JSZip, Vitest, Playwright. All model processing and assets stay local to the browser.
+
+## Development instructions
+
+Read [AGENTS.md](AGENTS.md). Preserve imported source files and keep geometric and export regressions passing.
