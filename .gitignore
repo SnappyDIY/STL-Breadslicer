@@ -2,3 +2,6 @@ node_modules/
 dist/
 playwright-report/
 test-results/
+.npm-cache/
+
+preview*.log

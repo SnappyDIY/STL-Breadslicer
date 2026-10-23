@@ -1,44 +1,50 @@
-# STL BreadSlicer v0.3
+# STL BreadSlicer v0.5
 
-Local-first browser application for STL slicing for 3D printing and laser cutting.
+Lokale Browser-App zum Ausrichten, Skalieren und Schneiden von STL-Modellen für 3D-Druck und Laser. Modelle und Berechnungen bleiben auf dem eigenen Rechner.
 
-## Start
-
-Node.js 22 or later is recommended.
+## Starten
 
 ```sh
 npm install
 npm run dev
 ```
 
-## Quality checks
+## Funktionen
+
+- STL-Prüfung, echte Modellminiatur, Zentrierung und Skalierung in Millimetern
+- Zusammenhängende Bezugsflächen erkennen und das Modell an X/Y/Z ausrichten
+- Original-, Schnitt- und Explosionsansicht, gekoppelte Scheibendicke und Anzahl, manuelle Grenzen
+- Massiv als Standard; Honeycomb, Gitter, Voronoi-Zellen und räumliches Gyroid
+- Räumlicher Wandabstand aus einem beschleunigten Abstandsfeld
+- Eingravierte Rillen-, Punkt- und Kreuzreliefs auf Schnittflächen
+- Passbohrungen mit separaten Passstiften oder Steckzapfen mit passenden Buchsen
+- Silhouette des gesamten Modells mit Konturabstand und optionalen Innenöffnungen
+- STL, ZIP, 3MF sowie SVG/DXF mit gemeinsamer topologischer Kerf-Kompensation
+- Konturbasiertes Nesting mit Vierteldrehungen, Teileabstand und mehreren Platten
+- Projektdateien mit Modell und Fertigungseinstellungen
+
+Zusatzoptionen bleiben eingeklappt. Zahlen werden mit Return oder beim Verlassen des Felds übernommen. Gespeicherte Projekte behalten ihre Einstellungen; neue STL-Modelle starten massiv.
+
+Siehe [Bedienung und Fertigungsdetails](docs/MANUFACTURING.md) sowie [Validierung](docs/VALIDATION.md).
+
+## Prüfen
 
 ```sh
-npm test
 npm run build
-# Optional browser check of the built application:
-npx playwright install --with-deps chromium
+npm test
+# Optionaler separater Chromium-Smoke-Test:
 npm run test:browser
 ```
 
-GitHub Actions installs dependencies, runs geometric regression tests, builds the app and checks local WASM/model processing and manufacturing downloads in Chromium. See [validation results and remaining issues](docs/VALIDATION.md).
+Der Produktionsbuild und 87 automatisierte Tests wurden ausgeführt. Zusätzlich wurden Vorschauen, Passstift-STL/3MF sowie SVG/DXF-Mehrplattenpakete im In-App-Browser geprüft. Der separate Chromium-Smoke-Test wurde in dieser Sitzung nicht ausgeführt.
 
-## Implemented
+## Technische Grundlage
 
-- Local STL import with solid validation, locally generated watertight rabbit
-- X/Y/Z model rotations, automatic extents, interactive slice boundaries
-- Exact slab intersections; normalized arbitrary normals in the geometry API
-- Solid, honeycomb and grid cutouts
-- Separate print (STL, ZIP, 3MF) and laser (SVG, DXF, sheet SVG) exports
-- Closed concave laser cross-sections with holes
-- Basic JSON project save/load and shelf placement
+React, TypeScript, Vite, Three.js, manifold-3d/Clipper2, JSZip, Vitest und [three-mesh-bvh](https://github.com/gkjohnson/three-mesh-bvh) für beschleunigte Abstandsmessungen. Keine Modelle werden hochgeladen.
 
-Gyroid and Voronoi are simplified prototypes. Connectors and relief are reserved features. Kerf offsets, uniform shell thickness, nesting, orientation persistence and physical manufacturing accuracy have limitations documented in the validation report. Passing automated checks does not establish production readiness.
+Die Geometrieberechnung verwendet eine einstellbare numerische Auflösung. Nesting ist eine geprüfte heuristische Anordnung, kein Nachweis des globalen Materialoptimums. Physische Passungen und Laserbreiten hängen von Maschine und Material ab und wurden nicht an realen Fertigungsmaschinen kalibriert.
 
-## Stack
+Entwicklungsregeln: [AGENTS.md](AGENTS.md).
+## Online nutzen
 
-React 19, TypeScript, Vite, Three.js, `manifold-3d` WASM, JSZip, Vitest, Playwright. All model processing and assets stay local to the browser.
-
-## Development instructions
-
-Read [AGENTS.md](AGENTS.md). Preserve imported source files and keep geometric and export regressions passing.
+[STL BreadSlicer öffnen](https://snappydiy.github.io/STL-Breadslicer/). Modelle bleiben im Browser. Hinweise zur automatischen Veröffentlichung stehen in [docs/HOSTING.md](docs/HOSTING.md).

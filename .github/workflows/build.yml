@@ -1,36 +1,54 @@
-name: Build and Test
+name: Build, Test and Deploy
 on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      PAGES_BASE_PATH: /${{ github.event.repository.name }}/
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
+          cache: npm
       - name: Install dependencies
-        id: install
-        run: npm install
-      - name: Report dependency audit
-        run: npm audit || true
-      - name: Run tests
+        run: npm ci
+      - name: Run geometric regression tests
         run: npm test
       - name: Build application
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: npm run build
       - name: Install browser
         run: npx playwright install --with-deps chromium
-      - name: Browser smoke test
+      - name: Browser smoke test at the Pages path
         run: npm run test:browser
-      - name: Upload dependency lockfile
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        uses: actions/upload-artifact@v4
+      - name: Upload website
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.PAGES_ENABLED == 'true'
+        uses: actions/upload-pages-artifact@v3
         with:
-          name: dependency-lockfile
-          path: package-lock.json
+          path: dist
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.PAGES_ENABLED == 'true'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Publish website
+        id: deployment
+        uses: actions/deploy-pages@v4

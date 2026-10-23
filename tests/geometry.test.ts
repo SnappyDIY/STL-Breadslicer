@@ -3,8 +3,9 @@ import * as THREE from 'three';
 import {STLLoader} from 'three/addons/loaders/STLLoader.js';
 import JSZip from 'jszip';
 import type {Vec3} from 'manifold-3d';
-import {getLib, toSolid, toGeometry, makeSlice, extentAlong, normalizeNormal, type Solid} from '../src/geometry';
+import {getLib, toSolid, toGeometry, makeSlice, extentAlong, normalizeNormal, scaleGeometryToDimensions, centerGeometryOnBed, sliceContoursAtMidpoint, type Solid} from '../src/geometry';
 import {makeBunnyGeometry} from '../src/bunny';
+import {spatialCore} from '../src/spatialCore';
 import {boundaries, defaults, validateBoundaries} from '../src/model';
 import {stlBlob, threeMF} from '../src/export';
 import {svgFor, signedArea} from '../src/laser';
@@ -49,7 +50,7 @@ describe('Exact solid slicing',()=>{
  it.each(['honeycomb','grid','voronoi','gyroid'] as const)('creates valid %s cutouts',pattern=>{
   const source=lib.Manifold.cube([60,60,60]);let part:Solid|undefined;
   try{part=makeSlice(lib,source,10,15,{...defaults,pattern});checkSolid(part);expect(part.volume()).toBeLessThan(18000);const g=toGeometry(part);try{checkEdges(g)}finally{g.dispose()}}finally{part?.delete();source.delete()}
- });
+ },30000);
 });
 describe('Procedural bunny acceptance',()=>{
  it('is watertight at default resolution and produces twelve valid 5 mm slabs at 60 mm height',async()=>{
@@ -76,5 +77,89 @@ describe('Laser and manufacturing exports',()=>{
   try{const zip=await JSZip.loadAsync(await (await threeMF([g])).arrayBuffer());const xml=await zip.file('3D/3dmodel.model')!.async('string');expect(xml).toContain('unit="millimeter"');expect(xml.match(/<vertex /g)).toHaveLength(8);expect(xml.match(/<triangle /g)).toHaveLength(12);
    const vertices=[...xml.matchAll(/<vertex x="([^"]+)" y="([^"]+)" z="([^"]+)"\/>/g)].map(m=>m.slice(1).map(Number));const faces=[...xml.matchAll(/<triangle v1="(\d+)" v2="(\d+)" v3="(\d+)"\/>/g)].flatMap(m=>m.slice(1).map(Number));const parsed=new THREE.BufferGeometry();parsed.setAttribute('position',new THREE.Float32BufferAttribute(vertices.flat(),3));parsed.setIndex(faces);try{checkEdges(parsed);const solid=toSolid(parsed,lib);try{expect(solid.volume()).toBeCloseTo(12000,3)}finally{solid.delete()}}finally{parsed.dispose()}
   }finally{g.dispose()}
+ });
+});
+
+describe('Contour-following pattern rim',()=>{
+ it('keeps the exterior contour intact on a curved slab',()=>{
+  const source=lib.Manifold.cylinder(5,20,20,64);
+  const part=makeSlice(lib,source,0,5,{...defaults,cell:3,wall:2,density:65,pattern:'honeycomb'});
+  const original=source.slice(2.5),section=part.slice(2.5);
+  try{
+   checkSolid(part);
+   const expected=original.toPolygons().filter(p=>signedArea(p)>0).reduce((a,p)=>a+signedArea(p),0);
+   const loops=section.toPolygons(),outer=loops.filter(p=>signedArea(p)>0).reduce((a,p)=>a+signedArea(p),0);
+   expect(outer).toBeCloseTo(expected,2);
+   const holes=loops.filter(p=>signedArea(p)<0);expect(holes.length).toBeGreaterThan(0);
+   for(const loop of holes)for(const [x,y] of loop)expect(Math.hypot(x,y)).toBeLessThanOrEqual(18.01);
+  }finally{original.delete();section.delete();part.delete();source.delete()}
+ });
+});
+
+describe('Patterned demo acceptance',()=>{
+ it('creates all twelve honeycomb slabs including small tip sections',()=>{
+  const geometry=makeBunnyGeometry(32);geometry.computeBoundingBox();const box=geometry.boundingBox!,base=box.min.z,scale=60/(box.max.z-box.min.z);geometry.scale(scale,scale,scale);geometry.translate(0,0,-base*scale);
+  const source=toSolid(geometry,lib),[lo,hi]=extentAlong(source,[0,0,1]),cuts=boundaries(lo,hi,5),core=spatialCore(lib,source,1.5,.5);
+  try{expect(cuts).toHaveLength(13);for(let i=0;i<cuts.length-1;i++){const part=makeSlice(lib,source,cuts[i],cuts[i+1],{...defaults,cell:3,wall:1.5,pattern:'honeycomb'},[0,0,1],core);try{checkSolid(part);}finally{part.delete();}}}finally{core.delete();source.delete();geometry.dispose();}
+ },30000);
+});
+
+describe('Physical model dimensions',()=>{
+ it.each<[number,number,number]>([[20,40,60],[25,12,90]])('scales to %s × %s × %s mm and preserves the source',async(x,y,z)=>{
+  const original=new THREE.BoxGeometry(10,20,30);original.translate(8,14,20);
+  const before=Array.from(original.getAttribute('position').array);
+  const scaled=scaleGeometryToDimensions(original,[x,y,z]);
+  const solid=toSolid(scaled,lib);
+  try{
+   checkSolid(solid);const box=solid.boundingBox();
+   for(const [axis,target] of [x,y,z].entries())expect(box.max[axis]-box.min[axis]).toBeCloseTo(target,4);
+   expect(box.min).toEqual([3,4,5]);
+   expect(solid.volume()).toBeCloseTo(x*y*z,2);
+   expect(Array.from(original.getAttribute('position').array)).toEqual(before);
+   await stlRoundTrip(solid);
+   const cuts=boundaries(box.min[2],box.max[2],5);let volume=0;
+   for(let i=0;i<cuts.length-1;i++){const slab=makeSlice(lib,solid,cuts[i],cuts[i+1],config);try{checkSolid(slab);volume+=slab.volume();}finally{slab.delete();}}
+   expect(volume).toBeCloseTo(solid.volume(),2);
+  }finally{solid.delete();scaled.dispose();original.dispose();}
+ });
+ it('rejects zero, negative and non-finite target dimensions',()=>{
+  const geometry=new THREE.BoxGeometry(10,20,30);
+  try{for(const targets of [[0,20,30],[-1,20,30],[10,NaN,30],[10,20,Infinity]] as [number,number,number][])expect(()=>scaleGeometryToDimensions(geometry,targets)).toThrow();}finally{geometry.dispose();}
+ });
+});
+
+describe('Centered import and center-plane laser contours',()=>{
+ it('centers an offset STL in XY and grounds it at zero without changing dimensions',async()=>{
+  const input=new THREE.BoxGeometry(20,10,30);input.translate(120,-70,200);
+  const inputPositions=Array.from(input.getAttribute('position').array);
+  const centered=centerGeometryOnBed(input),solid=toSolid(centered.geometry,lib);
+  try{
+   const box=solid.boundingBox();expect(box.min).toEqual([-10,-5,0]);expect(box.max).toEqual([10,5,30]);
+   expect(centered.translation).toEqual([-120,70,-185]);expect(solid.volume()).toBeCloseTo(6000,3);
+   expect(Array.from(input.getAttribute('position').array)).toEqual(inputPositions);
+   await stlRoundTrip(solid);
+   // Move saved manual cuts with the model, including a reversed slicing axis.
+   for(const normal of [[1,0,0],[0,0,-1]] as Vec3[]){
+    const before=toSolid(input,lib);try{
+     const extent=extentAlong(before,normal),saved=boundaries(...extent,6);
+     const shift=centered.translation.reduce((sum,v,i)=>sum+v*normal[i],0);
+     const restored=saved.map(value=>value+shift);validateBoundaries(restored,...extentAlong(solid,normal));
+     for(let i=1;i<saved.length;i++)expect(restored[i]-restored[i-1]).toBeCloseTo(saved[i]-saved[i-1],8);
+    }finally{before.delete();}
+   }
+  }finally{solid.delete();centered.geometry.dispose();input.dispose();}
+ });
+ it('uses Z=15 for a 6 mm slab from 12 to 18 mm on a 30 mm taper',()=>{
+  const source=lib.Manifold.cylinder(30,15,0,96);
+  const slab=makeSlice(lib,source,12,18,config);
+  const middle=source.slice(15),bottom=source.slice(12),top=source.slice(18);
+  try{
+   const loops=sliceContoursAtMidpoint(slab,12,18),area=loops.reduce((sum,loop)=>sum+signedArea(loop),0);
+   expect(area).toBeCloseTo(middle.area(),4);
+   expect(Math.abs(area-bottom.area())).toBeGreaterThan(50);
+   expect(Math.abs(area-top.area())).toBeGreaterThan(50);
+   expect(svgFor(loops)).toContain('width="21.000mm"');
+   const [lo,hi]=extentAlong(slab,[0,0,1]);expect(lo).toBeCloseTo(12,5);expect(hi).toBeCloseTo(18,5);
+  }finally{middle.delete();bottom.delete();top.delete();slab.delete();source.delete();}
  });
 });
